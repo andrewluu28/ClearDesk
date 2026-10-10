@@ -8,6 +8,7 @@ import {
   type DeskAnalysis,
 } from "@/lib/analysis";
 import { prepareImage, type PreparedImage } from "@/lib/image";
+import { styleDefinitions, type StyleId } from "@/lib/styles";
 
 const steps = [
   "Inspecting the surface",
@@ -59,11 +60,13 @@ function Results({
   analysis,
   resultImage,
   mode,
+  styleName,
   onReset,
 }: {
   analysis: DeskAnalysis;
   resultImage: AnalyzeResponse["resultImage"];
   mode: AnalyzeResponse["mode"];
+  styleName: string;
   onReset: () => void;
 }) {
   const totalMinutes = analysis.tasks.reduce(
@@ -78,6 +81,9 @@ function Results({
           <div className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.18em] text-[#2f6b5b]">
             <SparkIcon /> Your reset plan
           </div>
+          <p className="mb-2 text-sm font-semibold text-[#61736e]">
+            {styleName} style
+          </p>
           <h2 className="text-3xl font-bold tracking-[-0.04em] sm:text-4xl">
             A clearer desk, one task at a time.
           </h2>
@@ -197,11 +203,14 @@ export function DeskAnalyzer() {
   const [isPreparing, setIsPreparing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
+  const [styleId, setStyleId] = useState<StyleId>(styleDefinitions[0].id);
+  const [resultStyleId, setResultStyleId] = useState<StyleId | null>(null);
 
   async function acceptFile(file?: File) {
     if (!file) return;
     setError("");
     setResult(null);
+    setResultStyleId(null);
     setIsPreparing(true);
     try {
       const prepared = await prepareImage(file);
@@ -243,7 +252,7 @@ export function DeskAnalyzer() {
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: image.dataUrl, styleId: null }),
+        body: JSON.stringify({ image: image.dataUrl, styleId }),
       });
       const json: unknown = await response.json();
       if (!response.ok) {
@@ -255,6 +264,7 @@ export function DeskAnalyzer() {
       }
       const parsed = analyzeResponseSchema.parse(json);
       setResult(parsed);
+      setResultStyleId(styleId);
       window.setTimeout(
         () => document.getElementById("results")?.scrollIntoView({ behavior: "smooth" }),
         100,
@@ -347,6 +357,35 @@ export function DeskAnalyzer() {
 
             <input ref={inputRef} id={inputId} type="file" accept="image/jpeg,image/png,image/webp,image/gif" capture="environment" onChange={handleFile} className="sr-only" />
 
+            <fieldset className="mt-3 rounded-2xl border border-[#dfe5dd] bg-[#faf9f4] p-3">
+              <legend className="px-1 text-xs font-bold uppercase tracking-[0.14em] text-[#61736e]">
+                Choose your desk style
+              </legend>
+              <div className="mt-1 grid gap-2 sm:grid-cols-3">
+                {styleDefinitions.map((style) => {
+                  const selected = style.id === styleId;
+                  return (
+                    <button
+                      key={style.id}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => setStyleId(style.id)}
+                      className={`rounded-xl border px-3 py-3 text-left transition ${
+                        selected
+                          ? "border-[#2f6b5b] bg-[#e6eee9] text-[#18312b] shadow-sm"
+                          : "border-transparent bg-white text-[#486159] hover:border-[#b6c9bf]"
+                      }`}
+                    >
+                      <span className="block text-sm font-bold">{style.name}</span>
+                      <span className="mt-1 block text-xs leading-5 text-[#61736e]">
+                        {style.description}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+
             <button onClick={analyze} disabled={!image || isAnalyzing || isPreparing} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#2f6b5b] px-6 py-4 font-bold text-white shadow-[0_10px_25px_rgba(47,107,91,0.25)] transition hover:bg-[#214e43] disabled:cursor-not-allowed disabled:bg-[#9aaba5] disabled:shadow-none">
               {isAnalyzing ? "Analyzing your desk…" : <><SparkIcon /> Build my reset plan</>}
             </button>
@@ -376,7 +415,18 @@ export function DeskAnalyzer() {
       )}
 
       <div id="results">
-        {result && <Results analysis={result.data} resultImage={result.resultImage} mode={result.mode} onReset={reset} />}
+        {result && resultStyleId && (
+          <Results
+            analysis={result.data}
+            resultImage={result.resultImage}
+            mode={result.mode}
+            styleName={
+              styleDefinitions.find((style) => style.id === resultStyleId)?.name ??
+              "Selected"
+            }
+            onReset={reset}
+          />
+        )}
       </div>
 
       <footer className="border-t border-[#dfe5dd] px-5 py-7 text-center text-xs text-[#71817c]">
