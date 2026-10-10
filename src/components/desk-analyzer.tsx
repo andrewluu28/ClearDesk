@@ -75,10 +75,10 @@ function Results({
     <section className="mx-auto w-full max-w-6xl px-5 pb-20 sm:px-8" aria-live="polite">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <div className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.18em] text-[#2f6b5b]">
-            <SparkIcon /> Your reset plan
+          <div className="mb-1 flex items-center gap-1 text-sm font-bold uppercase leading-5 tracking-[0.18em] text-[#2f6b5b]">
+            Your reset plan <span className="inline-flex h-4 w-4 items-center justify-center"><SparkIcon /></span>
           </div>
-          <h2 className="text-3xl font-bold tracking-[-0.04em] sm:text-4xl">
+          <h2 className="text-3xl font-bold leading-[1.05] tracking-[-0.04em] sm:text-4xl">
             A clearer desk, one task at a time.
           </h2>
         </div>
@@ -273,19 +273,12 @@ export function DeskAnalyzer() {
           <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#18312b] text-[#f2b84b]"><SparkIcon /></span>
           <div>
             <p className="text-lg font-bold tracking-[-0.03em]">ClearDesk</p>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#61736e]">Space to focus</p>
           </div>
         </div>
-        <span className="hidden rounded-full border border-[#d8dfd7] bg-white/60 px-4 py-2 text-xs font-semibold text-[#61736e] sm:block">
-          Private by design · no photo storage
-        </span>
       </header>
 
       <section className="mx-auto grid w-full max-w-6xl gap-10 px-5 pb-16 pt-8 sm:px-8 md:pt-16 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-16">
         <div>
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#dfd4b8] bg-[#fff9e9] px-3.5 py-2 text-xs font-bold uppercase tracking-[0.16em] text-[#7b5b20]">
-            <SparkIcon /> AI-powered reset plan
-          </div>
           <h1 className="max-w-xl text-5xl font-bold leading-[0.98] tracking-[-0.065em] sm:text-6xl lg:text-7xl">
             Turn desk chaos into <span className="text-[#2f6b5b]">clear next steps.</span>
           </h1>
@@ -375,7 +368,7 @@ export function DeskAnalyzer() {
         </div>
       )}
 
-      <div id="results">
+      <div id="results" className="scroll-mt-6">
         {result && <Results analysis={result.data} resultImage={result.resultImage} mode={result.mode} onReset={reset} />}
       </div>
 
