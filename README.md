@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ClearDesk
 
-## Getting Started
+ClearDesk turns one desk photo into a prioritized organization plan. This repository is the hackathon-ready skeleton: a responsive upload experience, browser-side image preparation, a typed analysis API, deterministic scoring, and a database-ready rule model.
 
-First, run the development server:
+## Stack
+
+- Next.js App Router and TypeScript
+- Tailwind CSS
+- OpenAI Responses API with image input and Structured Outputs
+- Drizzle ORM with PostgreSQL
+- Vercel-ready deployment
+
+## Start locally
 
 ```bash
+cp .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). `DEMO_MODE=true` returns a representative result without making an API call.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Enable live analysis
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Set these values in `.env.local`:
 
-## Learn More
+```bash
+DEMO_MODE=false
+OPENAI_API_KEY=your_key_here
+OPENAI_MODEL=gpt-6-astra
+```
 
-To learn more about Next.js, take a look at the following resources:
+The API key is only read by the server route. Never prefix it with `NEXT_PUBLIC_`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Connect PostgreSQL
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Add `DATABASE_URL` and apply the schema:
 
-## Deploy on Vercel
+```bash
+npm run db:push
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Until a database is connected and populated, the server uses the curated seed rules in `src/db/rules.ts`. The `organization_rules.style_id` field is nullable: all MVP rules are universal, and style-specific rules can be added later without changing the API contract.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Key paths
+
+- `src/components/desk-analyzer.tsx` — upload and results experience
+- `src/lib/image.ts` — browser validation and resizing
+- `src/lib/analysis.ts` — shared Zod schemas and deterministic score
+- `src/app/api/analyze/route.ts` — OpenAI and rule-retrieval boundary
+- `src/db/schema.ts` — PostgreSQL schema
+- `src/db/rules.ts` — database query with seed fallback
+
+## Before deploying
+
+1. Add `OPENAI_API_KEY`, `OPENAI_MODEL`, and `DATABASE_URL` in Vercel.
+2. Set `DEMO_MODE=false`.
+3. Run `npm run lint`, `npm run typecheck`, and `npm run build`.
+4. Add rate limiting before sharing the public URL broadly.
