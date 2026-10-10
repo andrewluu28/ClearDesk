@@ -6,6 +6,7 @@ import { toFile } from "openai/uploads";
 import { ZodError } from "zod";
 
 import { getActiveRules } from "@/db/rules";
+import { getActiveStyle } from "@/db/styles";
 import {
   analyzeRequestSchema,
   calculateOrganizationScore,
@@ -100,7 +101,17 @@ export async function POST(request: Request) {
       );
     }
 
-    const rules = await getActiveRules();
+    const [selectedStyle, rules] = await Promise.all([
+      getActiveStyle(payload.styleId),
+      getActiveRules(payload.styleId),
+    ]);
+    if (payload.styleId && !selectedStyle) {
+      return Response.json(
+        { error: "That organization style is unavailable." },
+        { status: 400 },
+      );
+    }
+
     const ruleContext = rules.map(
       ({ id, category, trigger, recommendation, reason }) => ({
         id,
@@ -110,6 +121,13 @@ export async function POST(request: Request) {
         reason,
       }),
     );
+    const styleContext = selectedStyle
+      ? {
+          name: selectedStyle.name,
+          description: selectedStyle.description,
+          guidance: selectedStyle.promptGuidance,
+        }
+      : null;
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const response = await openai.responses.parse({
       model: process.env.OPENAI_MODEL ?? "gpt-5.5",
@@ -121,7 +139,11 @@ export async function POST(request: Request) {
           content: [
             {
               type: "input_text",
-              text: `Analyze this desk using these curated rules as reference:\n${JSON.stringify(ruleContext)}`,
+              text: [
+                `Selected organization style:\n${JSON.stringify(styleContext)}`,
+                `Curated organization rules:\n${JSON.stringify(ruleContext)}`,
+                "Recommend practical changes that follow the selected style while respecting safety and the user's existing equipment.",
+              ].join("\n\n"),
             },
             {
               type: "input_image",
@@ -160,6 +182,9 @@ export async function POST(request: Request) {
             "Create a photorealistic, cleaned-up version of this exact desk.",
             "Keep the same desk, room, camera angle, perspective, and lighting.",
             "Organize items neatly, clear unnecessary clutter, and preserve useful electronics and furniture.",
+            selectedStyle
+              ? `Apply the ${selectedStyle.name} organization style: ${selectedStyle.promptGuidance}`
+              : "Use a balanced, practical organization style.",
             "Follow these recommended actions where appropriate:",
             ...response.output_parsed.tasks.map((task) => `- ${task.title}: ${task.reason}`),
             "Do not add labels, captions, or text.",

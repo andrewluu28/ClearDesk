@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
@@ -67,8 +67,14 @@ export const seedRules: OrganizationRule[] = [
   },
 ];
 
-export async function getActiveRules(): Promise<OrganizationRule[]> {
-  if (!process.env.DATABASE_URL) return seedRules;
+export async function getActiveRules(
+  styleId: string | null,
+): Promise<OrganizationRule[]> {
+  if (!process.env.DATABASE_URL) {
+    return seedRules.filter(
+      (rule) => rule.styleId === null || rule.styleId === styleId,
+    );
+  }
 
   const client = postgres(process.env.DATABASE_URL, { max: 1, prepare: false });
   try {
@@ -76,7 +82,17 @@ export async function getActiveRules(): Promise<OrganizationRule[]> {
     const rules = await db
       .select()
       .from(organizationRules)
-      .where(eq(organizationRules.active, true));
+      .where(
+        and(
+          eq(organizationRules.active, true),
+          styleId
+            ? or(
+                isNull(organizationRules.styleId),
+                eq(organizationRules.styleId, styleId),
+              )
+            : isNull(organizationRules.styleId),
+        ),
+      );
     return rules.length > 0 ? rules : seedRules;
   } finally {
     await client.end();

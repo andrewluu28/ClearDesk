@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { findStyleDefinition } from "@/lib/styles";
+
 export const categorySchema = z.enum([
   "safety",
   "trash",
@@ -45,7 +47,15 @@ export const analyzeRequestSchema = z.object({
       /^data:image\/(jpeg|jpg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/,
       "Use a Base64 JPEG, PNG, WebP, or GIF image.",
     ),
-  styleId: z.string().uuid().nullable().default(null),
+  styleId: z
+    .string()
+    .uuid()
+    .nullable()
+    .default(null)
+    .refine(
+      (styleId) => styleId === null || findStyleDefinition(styleId) !== null,
+      "Choose one of the available organization styles.",
+    ),
 });
 
 export const analyzeResponseSchema = z.object({
