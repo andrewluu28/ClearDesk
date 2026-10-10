@@ -33,10 +33,11 @@ The API key is only read by the server route. Live analysis also edits the uploa
 
 ## Connect PostgreSQL
 
-Add `DATABASE_URL` and apply the schema:
+Add `DATABASE_URL`, apply the migrations, and seed the universal rules:
 
 ```bash
-npm run db:push
+npm run db:migrate
+npm run db:seed
 ```
 
 Until a database is connected and populated, the server uses the curated seed rules in `src/db/rules.ts`. The `organization_rules.style_id` field is nullable: all MVP rules are universal, and style-specific rules can be added later without changing the API contract.
