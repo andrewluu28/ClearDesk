@@ -26,7 +26,7 @@ Set these values in `.env.local`:
 ```bash
 DEMO_MODE=false
 OPENAI_API_KEY=your_key_here
-OPENAI_MODEL=gpt-6-astra
+OPENAI_MODEL=gpt-5.5
 ```
 
 The API key is only read by the server route. Never prefix it with `NEXT_PUBLIC_`.

@@ -105,7 +105,7 @@ export async function POST(request: Request) {
     );
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const response = await openai.responses.parse({
-      model: process.env.OPENAI_MODEL ?? "gpt-6-astra",
+      model: process.env.OPENAI_MODEL ?? "gpt-5.5",
       instructions:
         "You analyze desk photos and create practical organization plans. Use supplied reference rules when relevant. Prioritize safety, avoid guessing private facts, and state when the image is not a desk or is too unclear. Return 3-5 concise observations and no more than 7 actionable tasks. Priority 1 is most urgent.",
       input: [
