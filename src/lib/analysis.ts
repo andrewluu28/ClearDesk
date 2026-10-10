@@ -50,6 +50,10 @@ export const analyzeRequestSchema = z.object({
 
 export const analyzeResponseSchema = z.object({
   data: deskAnalysisSchema,
+  resultImage: z
+    .string()
+    .regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/)
+    .nullable(),
   mode: z.enum(["live", "demo"]),
 });
 

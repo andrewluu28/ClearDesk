@@ -1,5 +1,8 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
+import { toFile } from "openai/uploads";
 import { ZodError } from "zod";
 
 import { getActiveRules } from "@/db/rules";
@@ -13,7 +16,7 @@ export const maxDuration = 60;
 
 const MAX_REQUEST_BYTES = 10 * 1024 * 1024;
 
-function demoAnalysis() {
+async function demoAnalysis() {
   const analysis = {
     imageValid: true,
     summary:
@@ -60,9 +63,13 @@ function demoAnalysis() {
     ],
     safetyNotes: [],
   };
+  const sampleImage = await readFile(
+    join(process.cwd(), "Images", "organized-desk.jpg"),
+  );
 
   return {
     data: { ...analysis, score: calculateOrganizationScore(analysis) },
+    resultImage: `data:image/jpeg;base64,${sampleImage.toString("base64")}`,
     mode: "demo" as const,
   };
 }
@@ -80,7 +87,7 @@ export async function POST(request: Request) {
     const payload = analyzeRequestSchema.parse(await request.json());
 
     if (process.env.DEMO_MODE === "true") {
-      return Response.json(demoAnalysis());
+      return Response.json(await demoAnalysis());
     }
 
     if (!process.env.OPENAI_API_KEY) {
@@ -136,11 +143,56 @@ export async function POST(request: Request) {
       );
     }
 
+    let resultImage: string | null = null;
+    if (response.output_parsed.imageValid) {
+      const imageBase64 = payload.image.slice(payload.image.indexOf(",") + 1);
+      const imageFile = await toFile(
+        Buffer.from(imageBase64, "base64"),
+        "desk.jpg",
+        { type: "image/jpeg" },
+      );
+      let generated;
+      try {
+        generated = await openai.images.edit({
+          model: "gpt-image-1",
+          image: imageFile,
+          prompt: [
+            "Create a photorealistic, cleaned-up version of this exact desk.",
+            "Keep the same desk, room, camera angle, perspective, and lighting.",
+            "Organize items neatly, clear unnecessary clutter, and preserve useful electronics and furniture.",
+            "Follow these recommended actions where appropriate:",
+            ...response.output_parsed.tasks.map((task) => `- ${task.title}: ${task.reason}`),
+            "Do not add labels, captions, or text.",
+          ].join("\n"),
+          input_fidelity: "high",
+          quality: "medium",
+          size: "1024x1024",
+          output_format: "jpeg",
+          output_compression: 80,
+        });
+      } catch (error) {
+        console.error("Cleaned-desk image generation failed", error);
+        return Response.json(
+          { error: "The plan is ready, but the cleaned-desk image could not be generated. Please try again." },
+          { status: 502 },
+        );
+      }
+      const generatedImage = generated.data?.[0]?.b64_json;
+      if (!generatedImage) {
+        return Response.json(
+          { error: "The plan is ready, but we could not generate its cleaned-desk image. Please try again." },
+          { status: 502 },
+        );
+      }
+      resultImage = `data:image/jpeg;base64,${generatedImage}`;
+    }
+
     return Response.json({
       data: {
         ...response.output_parsed,
         score: calculateOrganizationScore(response.output_parsed),
       },
+      resultImage,
       mode: "live" as const,
     });
   } catch (error) {

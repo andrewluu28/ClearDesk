@@ -13,6 +13,7 @@ const steps = [
   "Inspecting the surface",
   "Finding quick wins",
   "Building your plan",
+  "Visualizing your reset",
 ];
 
 function formatBytes(bytes: number) {
@@ -56,10 +57,12 @@ function ScoreRing({ score }: { score: number }) {
 
 function Results({
   analysis,
+  resultImage,
   mode,
   onReset,
 }: {
   analysis: DeskAnalysis;
+  resultImage: AnalyzeResponse["resultImage"];
   mode: AnalyzeResponse["mode"];
   onReset: () => void;
 }) {
@@ -153,6 +156,34 @@ function Results({
           )}
         </article>
       </div>
+
+      {resultImage ? (
+        <article className="mt-5 overflow-hidden rounded-[2rem] border border-[#dfe5dd] bg-white/70 p-5 shadow-[0_20px_60px_rgba(34,68,58,0.08)] sm:p-7">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2f6b5b]">The after</p>
+              <h3 className="mt-1 text-2xl font-bold">Your cleaned desk, visualized</h3>
+            </div>
+            <a
+              href={resultImage}
+              download="cleardesk-organized-desk.jpg"
+              className="rounded-full border border-[#cbd5cc] bg-white px-4 py-2 text-sm font-bold transition hover:border-[#2f6b5b] hover:text-[#2f6b5b]"
+            >
+              Download image
+            </a>
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element -- generated data URL */}
+          <img
+            src={resultImage}
+            alt="A visualized, organized version of your desk"
+            className="max-h-[640px] w-full rounded-2xl bg-[#edf3ef] object-contain"
+          />
+        </article>
+      ) : (
+        <p className="mt-5 rounded-2xl border border-[#dfe5dd] bg-white/70 px-5 py-4 text-sm text-[#61736e]">
+          A cleaned-desk image is unavailable because the photo could not be identified as a desk.
+        </p>
+      )}
     </section>
   );
 }
@@ -326,7 +357,7 @@ export function DeskAnalyzer() {
       {isAnalyzing && (
         <section className="mx-auto w-full max-w-4xl px-5 pb-16" aria-live="polite">
           <div className="rounded-[2rem] border border-[#dfe5dd] bg-white/70 p-6 sm:p-8">
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {steps.map((step, index) => (
                 <div key={step} className="flex items-center gap-3">
                   <span className={`grid h-8 w-8 place-items-center rounded-full text-sm font-bold ${index === 0 ? "animate-pulse-soft bg-[#2f6b5b] text-white" : "bg-[#e7ebe5] text-[#61736e]"}`}>{index + 1}</span>
@@ -345,7 +376,7 @@ export function DeskAnalyzer() {
       )}
 
       <div id="results">
-        {result && <Results analysis={result.data} mode={result.mode} onReset={reset} />}
+        {result && <Results analysis={result.data} resultImage={result.resultImage} mode={result.mode} onReset={reset} />}
       </div>
 
       <footer className="border-t border-[#dfe5dd] px-5 py-7 text-center text-xs text-[#71817c]">

@@ -1,12 +1,12 @@
 # ClearDesk
 
-ClearDesk turns one desk photo into a prioritized organization plan. This repository is the hackathon-ready skeleton: a responsive upload experience, browser-side image preparation, a typed analysis API, deterministic scoring, and a database-ready rule model.
+ClearDesk turns one desk photo into a prioritized organization plan and a generated preview of the cleaned desk. This repository is the hackathon-ready skeleton: a responsive upload experience, browser-side image preparation, a typed analysis API, deterministic scoring, and a database-ready rule model.
 
 ## Stack
 
 - Next.js App Router and TypeScript
 - Tailwind CSS
-- OpenAI Responses API with image input and Structured Outputs
+- OpenAI Responses API with image input and Structured Outputs, plus GPT Image editing
 - Drizzle ORM with PostgreSQL
 - Vercel-ready deployment
 
@@ -17,7 +17,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). `DEMO_MODE=true` returns a representative result without making an API call.
+Open [http://localhost:3000](http://localhost:3000). `DEMO_MODE=true` returns a representative plan and sample cleaned-desk image without making an API call.
 
 ## Enable live analysis
 
@@ -29,7 +29,7 @@ OPENAI_API_KEY=your_key_here
 OPENAI_MODEL=gpt-5.5
 ```
 
-The API key is only read by the server route. Never prefix it with `NEXT_PUBLIC_`.
+The API key is only read by the server route. Live analysis also edits the uploaded photo with `gpt-image-1` to create a cleaned-desk preview. Never prefix the key with `NEXT_PUBLIC_`.
 
 ## Connect PostgreSQL
 
