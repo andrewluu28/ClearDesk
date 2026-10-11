@@ -73,21 +73,18 @@ async function demoAnalysis() {
         title: "Clear the center zone",
         reason: "This immediately restores a usable work area.",
         priority: 1 as const,
-        estimatedMinutes: 5,
         referenceRuleId: "72a04e88-1e2c-45d8-9c23-f7ff58623da9",
       },
       {
         title: "Group and route loose cables",
         reason: "A single cable path makes the setup safer and easier to clean.",
         priority: 2 as const,
-        estimatedMinutes: 8,
         referenceRuleId: "99cc06b9-9b8f-4bdb-b4ce-55dc4124b399",
       },
       {
         title: "Sort visible paper",
         reason: "Use act, file, and recycle groups to prevent another pile.",
         priority: 3 as const,
-        estimatedMinutes: 10,
         referenceRuleId: "22776dc6-eedb-46de-88d4-a3cba0bb20ec",
       },
     ],
@@ -162,7 +159,7 @@ export async function POST(request: Request) {
     const response = await openai.responses.parse({
       model: process.env.OPENAI_MODEL ?? "gpt-5.5",
       instructions:
-        "You analyze desk photos and create practical organization plans plus a tightly constrained visual-decoration edit plan. First inventory what is visibly present and identify open placement zones. Then compare only visible evidence with the selected style's required and conflicting signals. Preserve fixed furniture, architecture, electronics, personal identity, and useful objects. Treat every notebook, journal, planner, sketchbook, workbook, and set of study notes as a protected useful work object: include it in essentialItems and keep, never conceal or discard it, though you may neatly align or relocate it. For Minimalist, express simplicity through intentional spacing, alignment, grouping, and consolidation rather than making useful possessions disappear; default to zero additions and add at most one approved functional organizer only when necessary. For Productivity, optimize for meaningful output per unit of time, energy, and resources: create one central work axis, square movable work objects with the desk edges, group loose supplies, move distractions outside the immediate reach zone, and choose additions from visualProfile.preferredObjects in listed priority order. Add a riser only when it can improve an existing screen or laptop position; add an action notebook only when no equivalent notebook is visible; add a focus timer only when it fits a free quick-access zone; add a document stand only when visible reference papers need support; add cable management only when loose cables are visible. Each Productivity addition must address a different observed friction and occupy a different zone. For additions, choose only exact item names from visualProfile.preferredObjects, never add an item or equivalent that is already visible, use zero additions when none are needed, never exceed visualProfile.maxNewItems, and place every addition in a visibly available zone. The edit should strengthen the selected vibe without replacing the user's real desk. Use supplied reference rules when relevant. Prioritize safety, avoid guessing private facts, and state when the image is not a desk or is too unclear. Return 3-5 concise observations and no more than 7 actionable tasks. Priority 1 is most urgent.",
+        "You analyze desk photos and create practical organization plans plus a tightly constrained visual-decoration edit plan. First inventory what is visibly present and identify open placement zones. Then compare only visible evidence with the selected style's required and conflicting signals. Preserve fixed furniture, architecture, electronics, personal identity, and useful objects. Treat every notebook, journal, planner, sketchbook, workbook, and set of study notes as a protected useful work object: include it in essentialItems and keep, never conceal or discard it, though you may neatly align or relocate it. For Minimalist, express simplicity through intentional spacing, alignment, grouping, and consolidation rather than making useful possessions disappear; default to zero additions and add at most one approved functional organizer only when necessary. For Productivity, optimize for meaningful output per unit of time, energy, and resources: create one central work axis, square movable work objects with the desk edges, group loose supplies, move distractions outside the immediate reach zone, and choose additions from visualProfile.preferredObjects in listed priority order. Add a riser only when it can improve an existing screen or laptop position; add an action notebook only when no equivalent notebook is visible; add a focus timer only when it fits a free quick-access zone; add a document stand only when visible reference papers need support; add cable management only when loose cables are visible. Each Productivity addition must address a different observed friction and occupy a different zone. For additions, choose only exact item names from visualProfile.preferredObjects, never add an item or equivalent that is already visible, use zero additions when none are needed, never exceed visualProfile.maxNewItems, and place every addition in a visibly available zone. The edit should strengthen the selected vibe without replacing the user's real desk. Use supplied reference rules when relevant. Prioritize safety, avoid guessing private facts, and state when the image is not a desk or is too unclear. Return 3-5 concise observations and no more than 7 actionable tasks. Priority 1 is most urgent. Include safety notes only for immediate, visible hazards; use no more than two notes and keep each to one short sentence under 12 words.",
       input: [
         {
           role: "user",

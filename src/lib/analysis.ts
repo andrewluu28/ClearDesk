@@ -67,11 +67,10 @@ export const modelAnalysisSchema = z.object({
       title: z.string(),
       reason: z.string(),
       priority: z.number().int().min(1).max(3),
-      estimatedMinutes: z.number().int().min(1).max(120),
       referenceRuleId: z.string().nullable(),
     }),
   ),
-  safetyNotes: z.array(z.string()),
+  safetyNotes: z.array(z.string().max(100)).max(2),
 });
 
 export const deskAnalysisSchema = modelAnalysisSchema.extend({
@@ -114,12 +113,14 @@ export function calculateOrganizationScore(
 ) {
   if (!analysis.imageValid) return 0;
 
-  const severityPenalty = { low: 4, medium: 9, high: 16 } as const;
+  // Keep the score encouraging: findings should identify opportunities without
+  // making a usable desk feel like a failure.
+  const severityPenalty = { low: 2, medium: 5, high: 9 } as const;
   const observationPenalty = analysis.observations.reduce(
     (total, observation) => total + severityPenalty[observation.severity],
     0,
   );
-  const safetyPenalty = Math.min(24, analysis.safetyNotes.length * 12);
+  const safetyPenalty = Math.min(12, analysis.safetyNotes.length * 6);
 
-  return Math.max(5, Math.min(100, 100 - observationPenalty - safetyPenalty));
+  return Math.max(20, Math.min(100, 100 - observationPenalty - safetyPenalty));
 }

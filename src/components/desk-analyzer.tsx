@@ -69,10 +69,15 @@ function Results({
   styleName: string;
   onReset: () => void;
 }) {
-  const totalMinutes = analysis.tasks.reduce(
-    (sum, task) => sum + task.estimatedMinutes,
-    0,
-  );
+  const [completedTasks, setCompletedTasks] = useState<Record<number, boolean>>({});
+  const completedCount = Object.values(completedTasks).filter(Boolean).length;
+
+  function toggleTask(index: number) {
+    setCompletedTasks((current) => ({
+      ...current,
+      [index]: !current[index],
+    }));
+  }
 
   return (
     <section className="mx-auto w-full max-w-6xl px-5 pb-20 sm:px-8" aria-live="polite">
@@ -85,7 +90,7 @@ function Results({
             {styleName} style
           </p>
           <h2 className="text-3xl font-bold tracking-[-0.04em] sm:text-4xl">
-            A clearer desk, one task at a time.
+            Your next steps, ready to check off.
           </h2>
         </div>
         <button
@@ -109,13 +114,13 @@ function Results({
             <div>
               <p className="text-lg font-semibold leading-7">{analysis.summary}</p>
               <p className="mt-3 text-sm text-[#61736e]">
-                About {totalMinutes} minutes across {analysis.tasks.length} focused tasks.
+                {analysis.tasks.length} focused tasks, ordered by impact.
               </p>
             </div>
           </article>
 
           <article className="rounded-[2rem] border border-[#dfe5dd] bg-white/70 p-6">
-            <h3 className="mb-4 font-bold">What stood out</h3>
+            <h3 className="mb-4 font-bold">What we noticed</h3>
             <div className="space-y-3">
               {analysis.observations.map((item, index) => (
                 <div key={`${item.category}-${index}`} className="flex gap-3 border-b border-[#e7ebe5] pb-3 last:border-0 last:pb-0">
@@ -134,27 +139,33 @@ function Results({
           <div className="mb-6 flex items-center justify-between gap-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#a8c4b9]">Prioritized checklist</p>
-              <h3 className="mt-1 text-2xl font-bold">Start with the first win</h3>
+              <h3 className="mt-1 text-2xl font-bold">Check off your next steps</h3>
             </div>
-            <span className="rounded-full bg-white/10 px-3 py-1.5 text-sm">{totalMinutes} min</span>
+            <span className="rounded-full bg-white/10 px-3 py-1.5 text-sm">
+              {completedCount}/{analysis.tasks.length} done
+            </span>
           </div>
           <ol className="space-y-3">
             {analysis.tasks.map((task, index) => (
-              <li key={`${task.title}-${index}`} className="group flex gap-4 rounded-2xl bg-white/[0.07] p-4 transition hover:bg-white/[0.11]">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#f2b84b] font-bold text-[#18312b]">{index + 1}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <h4 className="font-bold">{task.title}</h4>
-                    <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs text-[#d6e3de]">{task.estimatedMinutes} min</span>
+              <li key={`${task.title}-${index}`} className="group rounded-2xl bg-white/[0.07] transition hover:bg-white/[0.11]">
+                <label className="flex cursor-pointer gap-4 p-4">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(completedTasks[index])}
+                    onChange={() => toggleTask(index)}
+                    className="mt-0.5 h-6 w-6 shrink-0 cursor-pointer accent-[#f2b84b]"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <h4 className={`font-bold ${completedTasks[index] ? "text-[#a8c4b9] line-through" : ""}`}>{task.title}</h4>
+                    <p className="mt-1.5 text-sm leading-6 text-[#c3d4cd]">{task.reason}</p>
                   </div>
-                  <p className="mt-1.5 text-sm leading-6 text-[#c3d4cd]">{task.reason}</p>
-                </div>
+                </label>
               </li>
             ))}
           </ol>
           {analysis.safetyNotes.length > 0 && (
             <div className="mt-5 rounded-2xl border border-[#f2b84b]/35 bg-[#f2b84b]/10 p-4">
-              <p className="text-sm font-bold text-[#ffd980]">Safety first</p>
+              <p className="text-sm font-bold text-[#ffd980]">Caution</p>
               {analysis.safetyNotes.map((note) => (
                 <p key={note} className="mt-1 text-sm text-[#f9e7bd]">{note}</p>
               ))}
@@ -168,7 +179,7 @@ function Results({
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2f6b5b]">Style inspiration</p>
-              <h3 className="mt-1 text-2xl font-bold">Your desk vibe, visualized</h3>
+              <h3 className="mt-1 text-2xl font-bold">A possible look for your desk</h3>
             </div>
             <a
               href={resultImage}
@@ -181,13 +192,16 @@ function Results({
           {/* eslint-disable-next-line @next/next/no-img-element -- generated data URL */}
           <img
             src={resultImage}
-            alt="A decoration suggestion for your desk"
+            alt="AI-generated organization concept for your desk"
             className="max-h-[640px] w-full rounded-2xl bg-[#edf3ef] object-contain"
           />
+          <p className="mt-3 text-xs leading-5 text-[#71817c]">
+            AI-generated preview for inspiration. Details may be inaccurate or differ from your actual space.
+          </p>
         </article>
       ) : (
         <p className="mt-5 rounded-2xl border border-[#dfe5dd] bg-white/70 px-5 py-4 text-sm text-[#61736e]">
-          A decoration suggestion is unavailable because the photo could not be identified as a desk.
+          We couldn&apos;t create a visual preview because the photo wasn&apos;t clearly identified as a desk.
         </p>
       )}
     </section>
@@ -290,13 +304,13 @@ export function DeskAnalyzer() {
       <section className="mx-auto grid w-full max-w-6xl gap-10 px-5 pb-16 pt-8 sm:px-8 md:pt-16 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-16">
         <div>
           <h1 className="max-w-xl text-5xl font-bold leading-[0.98] tracking-[-0.065em] sm:text-6xl lg:text-7xl">
-            Turn desk chaos into <span className="text-[#2f6b5b]">clear next steps.</span>
+            Turn desk clutter into <span className="text-[#2f6b5b]">clear next steps.</span>
           </h1>
           <p className="mt-6 max-w-lg text-lg leading-8 text-[#61736e]">
-            Share one photo. Get an organization score and a practical plan ordered by what will make the biggest difference first.
+            Share a photo to get an encouraging organization score, a prioritized checklist, and a visual idea for your space.
           </p>
           <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-[#486159]">
-            {["One photo", "Under a minute", "Actionable tasks"].map((item) => (
+            {["One photo", "Simple checklist", "Personalized ideas"].map((item) => (
               <span key={item} className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#f2b84b]" />{item}
               </span>
