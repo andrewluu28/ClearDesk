@@ -704,7 +704,7 @@ export function DeskAnalyzer() {
                       type="button"
                       aria-pressed={selected}
                       onClick={() => setStyleId(style.id)}
-                      className={`rounded-xl border px-3 py-3 text-left transition ${
+                      className={`flex h-full flex-col justify-start rounded-xl border px-3 py-3 text-left transition ${
                         selected
                           ? "border-[#2f6b5b] bg-[#e6eee9] text-[#18312b] shadow-sm"
                           : "border-transparent bg-white text-[#486159] hover:border-[#b6c9bf]"
