@@ -167,8 +167,8 @@ function Results({
         <article className="mt-5 overflow-hidden rounded-[2rem] border border-[#dfe5dd] bg-white/70 p-5 shadow-[0_20px_60px_rgba(34,68,58,0.08)] sm:p-7">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2f6b5b]">The after</p>
-              <h3 className="mt-1 text-2xl font-bold">Your cleaned desk, visualized</h3>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2f6b5b]">Style inspiration</p>
+              <h3 className="mt-1 text-2xl font-bold">Your desk vibe, visualized</h3>
             </div>
             <a
               href={resultImage}
@@ -181,13 +181,13 @@ function Results({
           {/* eslint-disable-next-line @next/next/no-img-element -- generated data URL */}
           <img
             src={resultImage}
-            alt="A visualized, organized version of your desk"
+            alt="A decoration suggestion for your desk"
             className="max-h-[640px] w-full rounded-2xl bg-[#edf3ef] object-contain"
           />
         </article>
       ) : (
         <p className="mt-5 rounded-2xl border border-[#dfe5dd] bg-white/70 px-5 py-4 text-sm text-[#61736e]">
-          A cleaned-desk image is unavailable because the photo could not be identified as a desk.
+          A decoration suggestion is unavailable because the photo could not be identified as a desk.
         </p>
       )}
     </section>

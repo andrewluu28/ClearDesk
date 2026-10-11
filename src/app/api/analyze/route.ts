@@ -22,6 +22,33 @@ async function demoAnalysis() {
     imageValid: true,
     summary:
       "Your desk has a useful foundation. Clearing the center and grouping loose items will create the quickest improvement.",
+    environment: {
+      fixedItems: ["desk", "monitor"],
+      essentialItems: ["keyboard", "mouse"],
+      movableItems: ["loose papers", "small supplies"],
+      personalItems: [],
+      availableZones: [
+        {
+          name: "rear corner",
+          description: "A small open area suitable for one compact accent.",
+        },
+      ],
+      dominantColors: ["natural wood", "black", "white"],
+      lighting: "Soft ambient room lighting",
+    },
+    styleAudit: {
+      matchedSignals: ["natural wood surface"],
+      missingSignals: ["a more intentional visual grouping"],
+      conflictingSignals: ["scattered small objects"],
+    },
+    editPlan: {
+      keep: ["desk", "monitor", "keyboard", "mouse"],
+      relocate: [
+        { item: "small supplies", destination: "one existing container" },
+      ],
+      conceal: ["loose papers"],
+      additions: [],
+    },
     observations: [
       {
         category: "clutter" as const,
@@ -126,13 +153,14 @@ export async function POST(request: Request) {
           name: selectedStyle.name,
           description: selectedStyle.description,
           guidance: selectedStyle.promptGuidance,
+          visualProfile: selectedStyle.visualProfile,
         }
       : null;
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const response = await openai.responses.parse({
       model: process.env.OPENAI_MODEL ?? "gpt-5.5",
       instructions:
-        "You analyze desk photos and create practical organization plans. Use supplied reference rules when relevant. Prioritize safety, avoid guessing private facts, and state when the image is not a desk or is too unclear. Return 3-5 concise observations and no more than 7 actionable tasks. Priority 1 is most urgent.",
+        "You analyze desk photos and create practical organization plans plus a tightly constrained visual-decoration edit plan. First inventory what is visibly present and identify open placement zones. Then compare only visible evidence with the selected style's required and conflicting signals. Preserve fixed furniture, architecture, electronics, personal identity, and useful objects. For additions, choose only exact item names from visualProfile.preferredObjects, never add an item or equivalent that is already visible, use zero additions when none are needed, never exceed visualProfile.maxNewItems, and place every addition in a visibly available zone. The edit should strengthen the selected vibe without replacing the user's real desk. Use supplied reference rules when relevant. Prioritize safety, avoid guessing private facts, and state when the image is not a desk or is too unclear. Return 3-5 concise observations and no more than 7 actionable tasks. Priority 1 is most urgent.",
       input: [
         {
           role: "user",
@@ -142,7 +170,7 @@ export async function POST(request: Request) {
               text: [
                 `Selected organization style:\n${JSON.stringify(styleContext)}`,
                 `Curated organization rules:\n${JSON.stringify(ruleContext)}`,
-                "Recommend practical changes that follow the selected style while respecting safety and the user's existing equipment.",
+                "Scan the current environment before recommending changes. Record fixed, essential, movable, and personal items; open placement zones; dominant colors; and lighting. Identify which style signals already match, which are missing, and which visible details conflict. Build an edit plan that keeps matching elements, relocates or conceals conflicts when practical, and adds only 1-3 approved objects when they supply a genuinely missing style signal. Recommend practical tips while respecting safety and the user's existing equipment.",
               ].join("\n\n"),
             },
             {
@@ -167,6 +195,15 @@ export async function POST(request: Request) {
 
     let resultImage: string | null = null;
     if (response.output_parsed.imageValid) {
+      const profile = selectedStyle?.visualProfile;
+      const allowedObjects = new Set(
+        (profile?.preferredObjects ?? []).map((item) => item.toLowerCase()),
+      );
+      const additions = response.output_parsed.editPlan.additions
+        .filter(
+          ({ item }) => !profile || allowedObjects.has(item.toLowerCase()),
+        )
+        .slice(0, profile?.maxNewItems ?? 2);
       const imageBase64 = payload.image.slice(payload.image.indexOf(",") + 1);
       const imageFile = await toFile(
         Buffer.from(imageBase64, "base64"),
@@ -176,36 +213,47 @@ export async function POST(request: Request) {
       let generated;
       try {
         generated = await openai.images.edit({
-          model: "gpt-image-1",
+          model:
+            process.env.OPENAI_IMAGE_MODEL ?? "gpt-image-2.5-sunburst",
           image: imageFile,
           prompt: [
-            "Create a photorealistic, cleaned-up version of this exact desk.",
-            "Keep the same desk, room, camera angle, perspective, and lighting.",
-            "Organize items neatly, clear unnecessary clutter, and preserve useful electronics and furniture.",
+            "Create a photorealistic decoration suggestion for this exact real desk.",
+            "This is a restrained image edit, not a redesigned room and not a generic staged desk.",
+            "Preserve the same desk, shelves, walls, room architecture, electronics, camera angle, crop, perspective, image proportions, and direction of light.",
+            "Preserve the identity, shape, color, scale, and position of all fixed items and every item listed under KEEP unless a relocation is explicitly listed.",
             selectedStyle
-              ? `Apply the ${selectedStyle.name} organization style: ${selectedStyle.promptGuidance}`
+              ? `Target vibe: ${selectedStyle.name}. ${selectedStyle.promptGuidance}`
               : "Use a balanced, practical organization style.",
-            "Follow these recommended actions where appropriate:",
-            ...response.output_parsed.tasks.map((task) => `- ${task.title}: ${task.reason}`),
-            "Do not add labels, captions, or text.",
+            profile
+              ? `Vibe keywords: ${profile.keywords.join(", ")}. Palette: ${profile.palette.join(", ")}. Materials: ${profile.materials.join(", ")}.`
+              : "Keep the materials and palette coherent with the existing desk.",
+            `Already-matching signals to preserve: ${response.output_parsed.styleAudit.matchedSignals.join("; ") || "none identified"}.`,
+            `KEEP: ${response.output_parsed.editPlan.keep.join("; ") || "all existing fixed and useful items"}.`,
+            `RELOCATE ONLY: ${response.output_parsed.editPlan.relocate.map(({ item, destination }) => `${item} to ${destination}`).join("; ") || "nothing"}.`,
+            `CONCEAL ONLY: ${response.output_parsed.editPlan.conceal.join("; ") || "nothing"}.`,
+            additions.length > 0
+              ? `ADD ONLY THESE ${additions.length} DECOR ITEMS: ${additions.map(({ item, placement, missingSignal }) => `${item} at ${placement} to provide ${missingSignal}`).join("; ")}.`
+              : "ADD NO NEW OBJECTS.",
+            "Do not introduce any object not explicitly listed under ADD ONLY. Do not duplicate existing objects. Do not replace furniture or electronics. Do not erase personal objects unless explicitly listed under CONCEAL.",
+            "Every added or moved object must fit the available space with realistic scale, contact, shadows, reflections, and occlusion. Keep natural photographic texture and minor real-world imperfections; avoid a glossy catalog-render look.",
+            "Do not add labels, captions, logos, watermarks, or newly invented readable text. Preserve existing readable documents without rewriting their content.",
           ].join("\n"),
-          input_fidelity: "high",
           quality: "medium",
           size: "1024x1024",
           output_format: "jpeg",
           output_compression: 80,
         });
       } catch (error) {
-        console.error("Cleaned-desk image generation failed", error);
+        console.error("Desk decoration image generation failed", error);
         return Response.json(
-          { error: "The plan is ready, but the cleaned-desk image could not be generated. Please try again." },
+          { error: "The plan is ready, but the decoration suggestion could not be generated. Please try again." },
           { status: 502 },
         );
       }
       const generatedImage = generated.data?.[0]?.b64_json;
       if (!generatedImage) {
         return Response.json(
-          { error: "The plan is ready, but we could not generate its cleaned-desk image. Please try again." },
+          { error: "The plan is ready, but we could not generate its decoration suggestion. Please try again." },
           { status: 502 },
         );
       }

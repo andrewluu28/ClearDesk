@@ -29,6 +29,7 @@ async function seedDatabase() {
               name: style.name,
               description: style.description,
               promptGuidance: style.promptGuidance,
+              visualProfile: style.visualProfile,
               active: style.active,
             },
           });
