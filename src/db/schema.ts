@@ -1,5 +1,6 @@
 import {
   boolean,
+  index,
   integer,
   jsonb,
   pgEnum,
@@ -9,6 +10,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+import type { AnalyzeResponse } from "@/lib/analysis";
 import type { StyleVisualProfile } from "@/lib/style-profile";
 
 export const ruleCategory = pgEnum("rule_category", [
@@ -52,5 +54,29 @@ export const organizationRules = pgTable("organization_rules", {
     .defaultNow(),
 });
 
+export const deskProjects = pgTable(
+  "desk_projects",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    browserId: uuid("browser_id").notNull(),
+    styleId: uuid("style_id"),
+    styleName: text("style_name").notNull(),
+    summary: text("summary").notNull(),
+    score: integer("score").notNull(),
+    result: jsonb("result").$type<AnalyzeResponse>().notNull(),
+    completedTasks: jsonb("completed_tasks").$type<boolean[]>().notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("desk_projects_browser_created_idx").on(
+      table.browserId,
+      table.createdAt,
+    ),
+  ],
+);
+
 export type OrganizationStyle = typeof organizationStyles.$inferSelect;
 export type OrganizationRule = typeof organizationRules.$inferSelect;
+export type DeskProject = typeof deskProjects.$inferSelect;

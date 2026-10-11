@@ -42,6 +42,8 @@ npm run db:seed
 
 Until a database is connected and populated, the server uses the curated seed data in `src/db/rules.ts` and `src/db/styles.ts`. The `organization_rules.style_id` field is nullable: all current rules are universal, and later style-specific rules can reference one of the three records in `organization_styles` without changing the API contract.
 
+With `DATABASE_URL` configured and migrations applied, completed desk plans are saved to Neon and can be reopened or deleted with **View history**. Checklist progress is saved as tasks are checked off and restored when a project is reopened. Deleting a project removes it permanently after confirmation. History is scoped to the current browser using an HTTP-only cookie; it does not require an account and does not sync across devices. Saved projects include the analysis and generated preview, but not the uploaded photo. Clearing browser cookies removes the browser's link to its history.
+
 ## Key paths
 
 - `src/components/desk-analyzer.tsx` — upload and results experience
@@ -49,6 +51,7 @@ Until a database is connected and populated, the server uses the curated seed da
 - `src/lib/analysis.ts` — shared Zod schemas and deterministic score
 - `src/app/api/analyze/route.ts` — OpenAI and rule-retrieval boundary
 - `src/db/schema.ts` — PostgreSQL schema
+- `src/db/projects.ts` — Neon-backed saved project history
 - `src/db/rules.ts` — database query with seed fallback
 - `src/db/styles.ts` — style lookup and seed records
 - `src/lib/styles.ts` — shared Minimalist, Cozy, and Productivity definitions

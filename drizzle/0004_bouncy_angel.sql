@@ -1,0 +1,1 @@
+ALTER TABLE "desk_projects" ADD COLUMN "completed_tasks" jsonb DEFAULT '[]'::jsonb NOT NULL;

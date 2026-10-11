@@ -8,6 +8,11 @@ import {
   type DeskAnalysis,
 } from "@/lib/analysis";
 import { prepareImage, type PreparedImage } from "@/lib/image";
+import {
+  projectHistoryResponseSchema,
+  saveProjectResponseSchema,
+  savedProjectResponseSchema,
+} from "@/lib/project-schema";
 import { styleDefinitions, type StyleId } from "@/lib/styles";
 
 const steps = [
@@ -18,9 +23,17 @@ const steps = [
 ];
 const MIN_PROGRESS_DURATION_MS = 2_800;
 const PROGRESS_STEP_INTERVAL_MS = 700;
+type HistoryProject =
+  ReturnType<typeof projectHistoryResponseSchema.parse>["projects"][number];
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function getResponseError(json: unknown, fallback: string) {
+  return typeof json === "object" && json && "error" in json
+    ? String(json.error)
+    : fallback;
 }
 
 function UploadIcon() {
@@ -63,26 +76,40 @@ function Results({
   resultImage,
   mode,
   styleName,
+  projectSaveNotice,
+  completedTasks,
+  onToggleTask,
   onReset,
 }: {
   analysis: DeskAnalysis;
   resultImage: AnalyzeResponse["resultImage"];
   mode: AnalyzeResponse["mode"];
   styleName: string;
+  projectSaveNotice: string;
+  completedTasks: boolean[];
+  onToggleTask: (index: number) => void;
   onReset: () => void;
 }) {
-  const [completedTasks, setCompletedTasks] = useState<Record<number, boolean>>({});
-  const completedCount = Object.values(completedTasks).filter(Boolean).length;
-
-  function toggleTask(index: number) {
-    setCompletedTasks((current) => ({
-      ...current,
-      [index]: !current[index],
-    }));
-  }
+  const completedCount = completedTasks.filter(Boolean).length;
 
   return (
     <section className="mx-auto w-full max-w-6xl px-5 pb-20 sm:px-8" aria-live="polite">
+      {projectSaveNotice && (
+        <p
+          className={`mb-5 rounded-2xl border px-4 py-3 text-sm ${
+            projectSaveNotice.startsWith("This result could not be saved")
+              ? "border-[#efd49b] bg-[#fff8e7] text-[#72551d]"
+              : "border-[#b6c9bf] bg-[#edf3ef] text-[#214e43]"
+          }`}
+          role={
+            projectSaveNotice.startsWith("This result could not be saved")
+              ? "alert"
+              : "status"
+          }
+        >
+          {projectSaveNotice}
+        </p>
+      )}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="mb-1 flex items-center gap-1 text-sm font-bold uppercase leading-5 tracking-[0.18em] text-[#2f6b5b]">
@@ -160,8 +187,8 @@ function Results({
                 <label className="flex cursor-pointer gap-4 p-4">
                   <input
                     type="checkbox"
-                    checked={Boolean(completedTasks[index])}
-                    onChange={() => toggleTask(index)}
+                    checked={completedTasks[index] ?? false}
+                    onChange={() => onToggleTask(index)}
                     className="mt-0.5 h-6 w-6 shrink-0 cursor-pointer accent-[#f2b84b]"
                   />
                   <div className="min-w-0 flex-1">
@@ -220,6 +247,7 @@ function Results({
 export function DeskAnalyzer() {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
+  const cancelDeleteRef = useRef<HTMLButtonElement>(null);
   const [image, setImage] = useState<PreparedImage | null>(null);
   const [fileName, setFileName] = useState("");
   const [error, setError] = useState("");
@@ -227,8 +255,20 @@ export function DeskAnalyzer() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [completedTasks, setCompletedTasks] = useState<boolean[]>([]);
   const [styleId, setStyleId] = useState<StyleId>(styleDefinitions[0].id);
   const [resultStyleId, setResultStyleId] = useState<StyleId | null>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [historyProjects, setHistoryProjects] = useState<
+    ReturnType<typeof projectHistoryResponseSchema.parse>["projects"]
+  >([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [loadingProjectId, setLoadingProjectId] = useState<string | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<HistoryProject | null>(null);
+  const [historyError, setHistoryError] = useState("");
+  const [projectSaveNotice, setProjectSaveNotice] = useState("");
 
   useEffect(() => {
     if (!isAnalyzing) return;
@@ -240,11 +280,61 @@ export function DeskAnalyzer() {
     return () => window.clearInterval(interval);
   }, [isAnalyzing]);
 
+  useEffect(() => {
+    if (!projectToDelete) return;
+
+    cancelDeleteRef.current?.focus();
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setProjectToDelete(null);
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [projectToDelete]);
+
+  useEffect(() => {
+    if (!activeProjectId) return;
+
+    const projectId = activeProjectId;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/projects/${projectId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ completedTasks }),
+          signal: controller.signal,
+        });
+        const json: unknown = await response.json();
+        if (!response.ok) {
+          throw new Error(
+            getResponseError(json, "We could not save checklist progress."),
+          );
+        }
+      } catch (caught) {
+        if (controller.signal.aborted) return;
+        setProjectSaveNotice(
+          caught instanceof Error
+            ? `Checklist progress could not be saved: ${caught.message}`
+            : "Checklist progress could not be saved. Please try again.",
+        );
+      }
+    }, 400);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [activeProjectId, completedTasks]);
+
   async function acceptFile(file?: File) {
     if (!file) return;
     setError("");
     setResult(null);
+    setActiveProjectId(null);
+    setCompletedTasks([]);
     setResultStyleId(null);
+    setProjectSaveNotice("");
     setIsPreparing(true);
     try {
       const prepared = await prepareImage(file);
@@ -273,14 +363,110 @@ export function DeskAnalyzer() {
     setImage(null);
     setFileName("");
     setResult(null);
+    setActiveProjectId(null);
+    setCompletedTasks([]);
     setError("");
+    setProjectSaveNotice("");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function toggleHistory() {
+    if (isHistoryOpen) {
+      setIsHistoryOpen(false);
+      return;
+    }
+
+    setIsHistoryOpen(true);
+    setHistoryError("");
+    setIsHistoryLoading(true);
+    try {
+      const response = await fetch("/api/projects");
+      const json: unknown = await response.json();
+      if (!response.ok) {
+        throw new Error(getResponseError(json, "Could not load project history."));
+      }
+      setHistoryProjects(projectHistoryResponseSchema.parse(json).projects);
+    } catch (caught) {
+      setHistoryError(
+        caught instanceof Error
+          ? caught.message
+          : "We could not load project history. Please try again.",
+      );
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  }
+
+  async function openHistoryProject(projectId: string) {
+    setLoadingProjectId(projectId);
+    setHistoryError("");
+    try {
+      const response = await fetch(`/api/projects/${projectId}`);
+      const json: unknown = await response.json();
+      if (!response.ok) {
+        throw new Error(getResponseError(json, "Could not open this project."));
+      }
+      const project = savedProjectResponseSchema.parse(json).project;
+      setResult(project.result);
+      setActiveProjectId(project.id);
+      setCompletedTasks(project.completedTasks);
+      setResultStyleId(
+        styleDefinitions.find((style) => style.id === project.styleId)?.id ?? null,
+      );
+      setProjectSaveNotice("");
+      setIsHistoryOpen(false);
+      window.setTimeout(
+        () => document.getElementById("results")?.scrollIntoView({ behavior: "smooth" }),
+        100,
+      );
+    } catch (caught) {
+      setHistoryError(
+        caught instanceof Error
+          ? caught.message
+          : "We could not open this project. Please try again.",
+      );
+    } finally {
+      setLoadingProjectId(null);
+    }
+  }
+
+  async function deleteHistoryProject(projectId: string) {
+    setDeletingProjectId(projectId);
+    setHistoryError("");
+    try {
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: "DELETE",
+      });
+      const json: unknown = await response.json();
+      if (!response.ok) {
+        throw new Error(getResponseError(json, "Could not delete this project."));
+      }
+      setHistoryProjects((current) =>
+        current.filter((project) => project.id !== projectId),
+      );
+    } catch (caught) {
+      setHistoryError(
+        caught instanceof Error
+          ? caught.message
+          : "We could not delete this project. Please try again.",
+      );
+    } finally {
+      setDeletingProjectId(null);
+    }
+  }
+
+  async function confirmDeleteProject() {
+    if (!projectToDelete) return;
+    const projectId = projectToDelete.id;
+    setProjectToDelete(null);
+    await deleteHistoryProject(projectId);
   }
 
   async function analyze() {
     if (!image) return;
     const startedAt = Date.now();
     setError("");
+    setProjectSaveNotice("");
     setActiveStep(0);
     setIsAnalyzing(true);
 
@@ -304,7 +490,36 @@ export function DeskAnalyzer() {
         await new Promise((resolve) => window.setTimeout(resolve, remainingProgressTime));
       }
       setResult(parsed);
+      setActiveProjectId(null);
+      const initialCompletedTasks = parsed.data.tasks.map(() => false);
+      setCompletedTasks(initialCompletedTasks);
       setResultStyleId(styleId);
+      try {
+        const saveResponse = await fetch("/api/projects", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ styleId, result: parsed }),
+        });
+        const saveJson: unknown = await saveResponse.json();
+        if (!saveResponse.ok) {
+          throw new Error(
+            getResponseError(saveJson, "We could not save this project."),
+          );
+        }
+        const saved = saveProjectResponseSchema.parse(saveJson).project;
+        setActiveProjectId(saved.id);
+        setProjectSaveNotice("This project was saved to your browser history.");
+        setHistoryProjects((current) => [
+          saved,
+          ...current.filter((project) => project.id !== saved.id),
+        ]);
+      } catch (caught) {
+        setProjectSaveNotice(
+          caught instanceof Error
+            ? `This result could not be saved to history: ${caught.message}`
+            : "This result could not be saved to history.",
+        );
+      }
       window.setTimeout(
         () => document.getElementById("results")?.scrollIntoView({ behavior: "smooth" }),
         100,
@@ -342,6 +557,92 @@ export function DeskAnalyzer() {
               </span>
             ))}
           </div>
+          <button
+            type="button"
+            onClick={() => void toggleHistory()}
+            aria-expanded={isHistoryOpen}
+            className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#cbd5cc] bg-white/75 px-5 py-2.5 text-sm font-bold text-[#18312b] shadow-sm transition hover:border-[#2f6b5b] hover:text-[#2f6b5b]"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4" fill="none">
+              <path d="M3 12a9 9 0 109-9 9.6 9.6 0 00-6.4 2.5L3 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M3 3v4h4m5-1v6l4 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            {isHistoryOpen ? "Hide history" : "View history"}
+          </button>
+          {isHistoryOpen && (
+            <section className="mt-4 rounded-2xl border border-[#dfe5dd] bg-white/80 p-4 shadow-sm" aria-label="Saved desk projects">
+              <h2 className="font-bold">Your saved projects</h2>
+              {isHistoryLoading ? (
+                <p className="mt-3 text-sm text-[#61736e]" role="status">Loading your history…</p>
+              ) : historyError ? (
+                <p className="mt-3 text-sm text-[#853e34]" role="alert">{historyError}</p>
+              ) : historyProjects.length === 0 ? (
+                <p className="mt-3 text-sm leading-6 text-[#61736e]">
+                  No project yet.
+                </p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {historyProjects.map((project) => (
+                    <li
+                      key={project.id}
+                      className="rounded-xl border border-[#e7ebe5] bg-[#faf9f4] p-3"
+                    >
+                      <div className="flex items-start gap-3">
+                        <button
+                          type="button"
+                          onClick={() => void openHistoryProject(project.id)}
+                          disabled={loadingProjectId !== null || deletingProjectId !== null}
+                          className="min-w-0 flex-1 text-left disabled:opacity-60"
+                        >
+                          <span className="flex items-center justify-between gap-3">
+                            <span className="font-bold">{project.styleName} desk</span>
+                            <span className="shrink-0 text-xs font-bold text-[#2f6b5b]">
+                              Score {project.score}
+                            </span>
+                          </span>
+                          <span className="mt-1 block text-sm leading-5 text-[#61736e]">
+                            {project.summary}
+                          </span>
+                          <span className="mt-2 block text-xs text-[#71817c]">
+                            {new Intl.DateTimeFormat(undefined, {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            }).format(new Date(project.createdAt))}
+                            {loadingProjectId === project.id ? " · Opening…" : ""}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setProjectToDelete(project)}
+                          disabled={loadingProjectId !== null || deletingProjectId !== null}
+                          aria-label={
+                            deletingProjectId === project.id
+                              ? `Deleting ${project.styleName} desk project`
+                              : `Delete ${project.styleName} desk project`
+                          }
+                          title="Delete project"
+                          className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[#e1aaa2] bg-white text-[#853e34] transition hover:bg-[#fff0ed] disabled:opacity-60"
+                        >
+                          {deletingProjectId === project.id ? (
+                            <span aria-hidden="true" className="text-sm">…</span>
+                          ) : (
+                            <svg
+                              viewBox="0 0 24 24"
+                              aria-hidden="true"
+                              className="h-4 w-4"
+                              fill="none"
+                            >
+                              <path d="M4 7h16M10 11v6m4-6v6M5 7l1 14h12l1-14M9 7V4h6v3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
         </div>
 
         <div className="relative">
@@ -492,6 +793,15 @@ export function DeskAnalyzer() {
             analysis={result.data}
             resultImage={result.resultImage}
             mode={result.mode}
+            projectSaveNotice={projectSaveNotice}
+            completedTasks={completedTasks}
+            onToggleTask={(index) =>
+              setCompletedTasks((current) =>
+                current.map((completed, taskIndex) =>
+                  taskIndex === index ? !completed : completed,
+                ),
+              )
+            }
             styleName={
               styleDefinitions.find((style) => style.id === resultStyleId)?.name ??
               "Selected"
@@ -501,8 +811,54 @@ export function DeskAnalyzer() {
         )}
       </div>
 
+      {projectToDelete && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-[#10231f]/55 p-5 backdrop-blur-sm"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setProjectToDelete(null);
+          }}
+        >
+          <section
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-project-title"
+            aria-describedby="delete-project-description"
+            className="w-full max-w-md rounded-[2rem] border border-white/80 bg-[#fffdf8] p-6 shadow-[0_30px_90px_rgba(10,31,25,0.3)] sm:p-8"
+          >
+            <div className="mb-5 grid h-12 w-12 place-items-center rounded-2xl bg-[#fff0ed] text-[#a64439]">
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none">
+                <path d="M4 7h16M10 11v6m4-6v6M5 7l1 14h12l1-14M9 7V4h6v3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <h2 id="delete-project-title" className="text-xl font-bold tracking-tight">
+              Delete this saved project?
+            </h2>
+            <p id="delete-project-description" className="mt-2 text-sm leading-6 text-[#61736e]">
+              This will permanently remove your {projectToDelete.styleName.toLowerCase()} desk project from history.
+            </p>
+            <div className="mt-7 flex justify-end gap-3">
+              <button
+                ref={cancelDeleteRef}
+                type="button"
+                onClick={() => setProjectToDelete(null)}
+                className="rounded-full border border-[#cbd5cc] bg-white px-5 py-2.5 text-sm font-bold text-[#18312b] transition hover:border-[#2f6b5b]"
+              >
+                Keep project
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDeleteProject()}
+                className="rounded-full bg-[#a64439] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#853e34]"
+              >
+                Delete project
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
       <footer className="border-t border-[#dfe5dd] px-5 py-7 text-center text-xs text-[#71817c]">
-        ClearDesk analyzes only the photo you submit. The MVP does not intentionally store uploaded images.
+        Uploaded photos are not saved to history. Completed plans and generated previews are stored in your Neon-backed browser history.
       </footer>
     </main>
   );
