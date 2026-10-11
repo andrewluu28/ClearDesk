@@ -21,10 +21,10 @@ SET "visual_profile" = CASE "slug"
 		"maxNewItems": 3
 	}'::jsonb
 	WHEN 'productivity' THEN '{
-		"keywords": ["focused", "zoned", "ergonomic", "accessible", "precise"],
-		"requiredSignals": ["clearly defined work zones", "aligned primary equipment", "frequently used tools within reach", "controlled documents and cables"],
-		"conflictingSignals": ["decorative distractions", "duplicate organizers", "blocked primary work area", "loose visible cables", "rarely used supplies in reach zones"],
-		"preferredObjects": ["angled document stand", "compact focus timer", "cable management dock", "single action notebook", "supportive laptop or monitor riser"],
+		"keywords": ["ready-to-work", "focused", "low-friction", "zoned", "ergonomic", "aligned", "deliberate"],
+		"requiredSignals": ["one clear central work axis with the primary screen and input devices aligned", "straight object edges that run parallel or perpendicular to the desk edge", "one obvious active-work zone with a single next-action surface", "frequently used tools within reach and occasional supplies moved outward", "reference material supported without blocking the work surface", "one controlled cable route behind or beside the primary equipment"],
+		"conflictingSignals": ["multiple competing work areas", "crooked or randomly oriented equipment", "decorative or novelty objects inside the active work zone", "duplicate organizers", "blocked primary work area", "loose visible cables", "scattered pens and supplies", "rarely used supplies occupying the immediate reach zone"],
+		"preferredObjects": ["supportive laptop or monitor riser", "single action notebook with one pen", "compact analog focus timer", "angled document stand", "cable management dock"],
 		"palette": ["charcoal", "desaturated blue-gray", "white", "natural wood"],
 		"materials": ["powder-coated metal", "felt", "matte plastic", "wood"],
 		"maxNewItems": 3
