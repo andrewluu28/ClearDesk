@@ -3,13 +3,13 @@ ALTER TABLE "organization_styles" ADD COLUMN "visual_profile" jsonb;
 UPDATE "organization_styles"
 SET "visual_profile" = CASE "slug"
 	WHEN 'minimalist' THEN '{
-		"keywords": ["airy", "intentional", "restrained", "concealed", "quiet"],
-		"requiredSignals": ["large areas of open work surface", "few visible objects", "concealed or consolidated storage", "cohesive neutral colors"],
-		"conflictingSignals": ["scattered small objects", "duplicate containers", "exposed loose papers", "decorative clutter", "visible cable tangles"],
-		"preferredObjects": ["slim neutral desk mat", "small lidded storage box", "single closed notebook", "minimal catchall tray"],
+		"keywords": ["purposeful", "focused", "tidy", "restrained", "quiet", "generous negative space"],
+		"requiredSignals": ["large areas of open work surface", "only purposeful task-relevant objects remain visible", "existing notebook or work materials are preserved and neatly aligned", "small loose items are grouped or consolidated rather than erased", "cohesive neutral colors"],
+		"conflictingSignals": ["scattered small objects", "duplicate containers", "misaligned loose paper that is not part of a notebook or active work", "decorative objects without a clear function", "visible cable tangles"],
+		"preferredObjects": ["slim neutral desk mat", "small lidded storage box", "minimal catchall tray"],
 		"palette": ["warm white", "pale gray", "natural wood", "matte black"],
 		"materials": ["felt", "light wood", "matte metal", "stoneware"],
-		"maxNewItems": 2
+		"maxNewItems": 1
 	}'::jsonb
 	WHEN 'cozy' THEN '{
 		"keywords": ["warm", "tactile", "layered", "personal", "lived-in"],
