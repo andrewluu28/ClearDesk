@@ -1,12 +1,15 @@
 import {
   boolean,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+
+import type { StyleVisualProfile } from "@/lib/style-profile";
 
 export const ruleCategory = pgEnum("rule_category", [
   "safety",
@@ -25,6 +28,7 @@ export const organizationStyles = pgTable("organization_styles", {
   name: text("name").notNull(),
   description: text("description").notNull(),
   promptGuidance: text("prompt_guidance").notNull(),
+  visualProfile: jsonb("visual_profile").$type<StyleVisualProfile>().notNull(),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

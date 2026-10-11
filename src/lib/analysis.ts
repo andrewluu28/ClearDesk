@@ -16,6 +16,45 @@ export const categorySchema = z.enum([
 export const modelAnalysisSchema = z.object({
   imageValid: z.boolean(),
   summary: z.string(),
+  environment: z.object({
+    fixedItems: z.array(z.string()),
+    essentialItems: z.array(z.string()),
+    movableItems: z.array(z.string()),
+    personalItems: z.array(z.string()),
+    availableZones: z.array(
+      z.object({
+        name: z.string(),
+        description: z.string(),
+      }),
+    ),
+    dominantColors: z.array(z.string()),
+    lighting: z.string(),
+  }),
+  styleAudit: z.object({
+    matchedSignals: z.array(z.string()),
+    missingSignals: z.array(z.string()),
+    conflictingSignals: z.array(z.string()),
+  }),
+  editPlan: z.object({
+    keep: z.array(z.string()),
+    relocate: z.array(
+      z.object({
+        item: z.string(),
+        destination: z.string(),
+      }),
+    ),
+    conceal: z.array(z.string()),
+    additions: z
+      .array(
+        z.object({
+          item: z.string(),
+          placement: z.string(),
+          missingSignal: z.string(),
+          reason: z.string(),
+        }),
+      )
+      .max(3),
+  }),
   observations: z.array(
     z.object({
       category: categorySchema,
