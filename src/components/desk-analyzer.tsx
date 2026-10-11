@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, DragEvent, useId, useRef, useState } from "react";
+import { ChangeEvent, DragEvent, useEffect, useId, useRef, useState } from "react";
 
 import {
   analyzeResponseSchema,
@@ -16,6 +16,8 @@ const steps = [
   "Building your plan",
   "Visualizing your reset",
 ];
+const MIN_PROGRESS_DURATION_MS = 2_800;
+const PROGRESS_STEP_INTERVAL_MS = 700;
 
 function formatBytes(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -107,18 +109,25 @@ function Results({
         </div>
       )}
 
+      <article className="mb-5 grid items-center gap-6 rounded-[2rem] border border-[#dfe5dd] bg-gradient-to-br from-[#fffdf8] via-[#fffdf8] to-[#edf3ef] p-6 shadow-[0_20px_60px_rgba(34,68,58,0.08)] sm:grid-cols-[8rem_minmax(0,1fr)] sm:p-8">
+        <div className="flex justify-center">
+          <ScoreRing score={analysis.score} />
+        </div>
+        <div className="min-w-0">
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-[#61736e]">
+            Your organization score
+          </p>
+          <p className="max-w-4xl text-lg font-semibold leading-8 sm:text-xl">
+            {analysis.summary}
+          </p>
+          <p className="mt-3 text-sm text-[#61736e]">
+            {analysis.tasks.length} focused tasks, ordered by impact.
+          </p>
+        </div>
+      </article>
+
       <div className="grid gap-5 lg:grid-cols-[0.9fr_1.4fr]">
         <div className="space-y-5">
-          <article className="flex flex-col items-center gap-6 rounded-[2rem] border border-[#dfe5dd] bg-[#fffdf8] p-7 text-center shadow-[0_20px_60px_rgba(34,68,58,0.08)] sm:flex-row sm:text-left">
-            <ScoreRing score={analysis.score} />
-            <div>
-              <p className="text-lg font-semibold leading-7">{analysis.summary}</p>
-              <p className="mt-3 text-sm text-[#61736e]">
-                {analysis.tasks.length} focused tasks, ordered by impact.
-              </p>
-            </div>
-          </article>
-
           <article className="rounded-[2rem] border border-[#dfe5dd] bg-white/70 p-6">
             <h3 className="mb-4 font-bold">What we noticed</h3>
             <div className="space-y-3">
@@ -216,9 +225,20 @@ export function DeskAnalyzer() {
   const [error, setError] = useState("");
   const [isPreparing, setIsPreparing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [activeStep, setActiveStep] = useState(0);
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [styleId, setStyleId] = useState<StyleId>(styleDefinitions[0].id);
   const [resultStyleId, setResultStyleId] = useState<StyleId | null>(null);
+
+  useEffect(() => {
+    if (!isAnalyzing) return;
+
+    const interval = window.setInterval(() => {
+      setActiveStep((current) => Math.min(current + 1, steps.length - 1));
+    }, PROGRESS_STEP_INTERVAL_MS);
+
+    return () => window.clearInterval(interval);
+  }, [isAnalyzing]);
 
   async function acceptFile(file?: File) {
     if (!file) return;
@@ -259,7 +279,9 @@ export function DeskAnalyzer() {
 
   async function analyze() {
     if (!image) return;
+    const startedAt = Date.now();
     setError("");
+    setActiveStep(0);
     setIsAnalyzing(true);
 
     try {
@@ -277,6 +299,10 @@ export function DeskAnalyzer() {
         throw new Error(message);
       }
       const parsed = analyzeResponseSchema.parse(json);
+      const remainingProgressTime = MIN_PROGRESS_DURATION_MS - (Date.now() - startedAt);
+      if (remainingProgressTime > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, remainingProgressTime));
+      }
       setResult(parsed);
       setResultStyleId(styleId);
       window.setTimeout(
@@ -301,18 +327,18 @@ export function DeskAnalyzer() {
         </div>
       </header>
 
-      <section className="mx-auto grid w-full max-w-6xl gap-10 px-5 pb-16 pt-8 sm:px-8 md:pt-16 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-16">
+      <section className="mx-auto grid w-full max-w-6xl gap-10 px-5 pb-16 pt-8 sm:px-8 md:pt-16 lg:grid-cols-[0.9fr_1.1fr] lg:items-start lg:gap-16">
         <div>
           <h1 className="max-w-xl text-5xl font-bold leading-[0.98] tracking-[-0.065em] sm:text-6xl lg:text-7xl">
-            Turn desk clutter into <span className="text-[#2f6b5b]">clear next steps.</span>
+            Find your next step toward a <span className="text-[#2f6b5b]">clearer desk.</span>
           </h1>
           <p className="mt-6 max-w-lg text-lg leading-8 text-[#61736e]">
             Share a photo to get an encouraging organization score, a prioritized checklist, and a visual idea for your space.
           </p>
           <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-[#486159]">
-            {["One photo", "Simple checklist", "Personalized ideas"].map((item) => (
-              <span key={item} className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#f2b84b]" />{item}
+            {styleDefinitions.map((style) => (
+              <span key={style.id} className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#f2b84b]" />{style.name}
               </span>
             ))}
           </div>
@@ -402,11 +428,50 @@ export function DeskAnalyzer() {
 
       {isAnalyzing && (
         <section className="mx-auto w-full max-w-4xl px-5 pb-16" aria-live="polite">
-          <div className="rounded-[2rem] border border-[#dfe5dd] bg-white/70 p-6 sm:p-8">
+          <div className="rounded-[2rem] border border-[#dfe5dd] bg-white/80 p-6 shadow-[0_20px_60px_rgba(34,68,58,0.08)] sm:p-8">
+            <div className="mb-6">
+              <div className="mb-2 flex items-center justify-between text-xs font-bold uppercase tracking-[0.14em] text-[#61736e]">
+                <span>Building your reset plan</span>
+                <span>Step {activeStep + 1} of {steps.length}</span>
+              </div>
+              <div
+                className="h-2 overflow-hidden rounded-full bg-[#e7ebe5]"
+                role="progressbar"
+                aria-label="Analysis progress"
+                aria-valuemin={1}
+                aria-valuemax={steps.length}
+                aria-valuenow={activeStep + 1}
+              >
+                <div
+                  className="h-full rounded-full bg-[#2f6b5b] transition-[width] duration-500 ease-out"
+                  style={{ width: `${((activeStep + 1) / steps.length) * 100}%` }}
+                />
+              </div>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {steps.map((step, index) => (
-                <div key={step} className="flex items-center gap-3">
-                  <span className={`grid h-8 w-8 place-items-center rounded-full text-sm font-bold ${index === 0 ? "animate-pulse-soft bg-[#2f6b5b] text-white" : "bg-[#e7ebe5] text-[#61736e]"}`}>{index + 1}</span>
+                <div
+                  key={step}
+                  aria-current={index === activeStep ? "step" : undefined}
+                  className={`flex items-center gap-3 rounded-xl px-2 py-2 transition-colors ${
+                    index === activeStep
+                      ? "bg-[#e6eee9] text-[#18312b]"
+                      : index < activeStep
+                        ? "text-[#2f6b5b]"
+                        : "text-[#82918b]"
+                  }`}
+                >
+                  <span
+                    className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-bold ${
+                      index === activeStep
+                        ? "animate-pulse-soft bg-[#2f6b5b] text-white"
+                        : index < activeStep
+                          ? "bg-[#2f6b5b] text-white"
+                          : "bg-[#e7ebe5] text-[#61736e]"
+                    }`}
+                  >
+                    {index < activeStep ? "✓" : index + 1}
+                  </span>
                   <span className="text-sm font-semibold">{step}</span>
                 </div>
               ))}
